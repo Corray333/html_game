@@ -2,6 +2,8 @@
   <div class="console">
     <div class="pad">
       <div class="pad_top">
+        <!-- <p v-if="world != null">X:{{ Math.floor(world.player.x/12) }}</p> -->
+        <!-- <p v-if="world != null">Y:{{ Math.floor(world.player.y/12) }}</p> -->
         <div class="dinamic">
           <div class="sound_dot"></div>
           <div class="sound_dot"></div>
@@ -40,16 +42,29 @@
     </div>
     <div class="screen">
       <div class="screen_edge">
+
         <div class="world">
+          <div class="money" v-if="world != undefined">
+            <img src="./assets/coin.png" alt="">
+            <p>{{ world.player.money }}</p>
+          </div>
+          <div class="intentory">
+            <div class="backpack_icon">
+              <img src="./assets/backpack.png" alt="">
+            </div>
+          </div>
           <div class="map">
             <img src="./assets/map.png" alt="" class="map_bg">
+            <div class="shadow" v-if="world != undefined"
+              :style="`top:${world.player.y}px; left: ${world.player.x}px; background-color: rgba(0,0,0,0.2); width:38px; height:18px; border-radius:10px; transform:scaleY(0.5) scaleX(0.9) translateX(-5px) translateY(65px);`">
+            </div>
             <img src="" alt="" class="player">
             <img v-if="world != undefined" v-for="(obj, i) of world.objects" :key="i" :src="obj.image"
               :class="obj.class" :style="`top:calc(12px*${obj.x});left:calc(12px*${obj.y})`" alt="" @click="test">
-            <img v-if="world != undefined" v-for="(obj, i) of world.objects" :key="i"
-              :style="`position: absolute; border: 2px solid red; top:calc(12px*${obj.collider.y});left:calc(12px*${obj.collider.x}); width:calc(12px*${obj.collider.width}); height:calc(12px*${obj.collider.height});`">
-            <div v-if="world != undefined" class="center" :style="`width: 5px; height: 5px; top:calc(1px*${world.player.y});left:calc(1px*${world.player.x})`"></div>
-            </div>
+            <img class="collider" v-if="world != undefined" v-for="(obj, i) of world.objects" :key="i"
+              :style="`top:calc(12px*${obj.collider.y});left:calc(12px*${obj.collider.x}); width:calc(12px*${obj.collider.width}); height:calc(12px*${obj.collider.height});`">
+            <!-- <div v-if="world != undefined" class="center" :style="`width: 5px; height: 5px; top:calc(1px*${world.player.y});left:calc(1px*${world.player.x})`"></div> -->
+          </div>
         </div>
       </div>
     </div>
@@ -112,6 +127,9 @@ window.addEventListener('keydown', (e) => {
   if (e.key == "s") {
     keys.s = true
   }
+  if (e.key == "Tab") {
+    keys.s = true
+  }
 })
 window.addEventListener('keyup', (e) => {
   if (e.key == "a") {
@@ -129,23 +147,47 @@ window.addEventListener('keyup', (e) => {
 })
 
 class Props {
-  constructor(name, img, x, y, cx, cy, cw, ch) {
+  constructor(name, x, y, cx, cy, cw, ch) {
     this.x = x
     this.y = y
     this.width = 0
     this.height = 0
-    this.image = img
     this.class = name
+    this.name = name
     this.collider = {
-      x: cx,
-      y: cy,
-      width: cw,
-      height: ch
+      x: cx - cw / 2,
+      y: cy - ch / 2,
+      width: cw * 2,
+      height: ch * 2
     }
+  }
+  get image() {
+    return `./src/assets/${this.name}.png`
   }
 }
 
-const speed = 6
+class Upgradable extends Props {
+  constructor(name, x, y, cx, cy, cw, ch) {
+    super(name, x, y, cx, cy, cw, ch)
+    this.level = 0
+    this.class += " upgradable"
+  }
+  get image() {
+    return `./src/assets/${this.name}_lvl${this.level}.png`
+  }
+}
+
+class Bed extends Upgradable {
+  constructor(name, x, y, cx, cy, cw, ch) {
+    super(name, x, y, cx, cy, cw, ch)
+    this.class += " bed"
+  }
+  get image() {
+    return `./src/assets/bed_lvl${this.level}_${this.name}.png`
+  }
+}
+
+const speed = 4
 const tileSize = 12
 
 const test = (e) => {
@@ -157,11 +199,13 @@ class Player {
     this.height = tileSize * 1.5
     this.width = tileSize * 1
     this.x = -260;
-    this.y = 380;
+    this.y = 390;
     this.currentAnimation = 0
     this.direction = "down"
     this.img = document.querySelector('.player')
     this.animateInterval = null
+    this.inventory = []
+    this.money = 100
   }
   draw() {
     this.img.src = `./src/assets/player_${this.direction}${this.currentAnimation}.png`
@@ -185,8 +229,66 @@ class Map {
     this.globalOffsetY = 0
     this.scale = 2
     this.objects = [
-      new Props('lake', './src/assets/lake.png', 22, 106, 102, 18, 4, 4),
-      new Props('house', './src/assets/house_lvl1.png', 23, -24, -24, 26, 4, 4),
+      // Get from json
+      new Props('lake', 17, 102, 102, 17, 4, 5),
+      new Upgradable('house', 23, -24, -24, 26, 4, 4),
+      new Props('tree', -5, 25, 25.5, -1.5, 2.5, 1.5),
+      new Props('tree', -3, 20, 20.5, 0.5, 2.5, 1.5),
+      new Props('tree', -9, 30, 30.5, -5.5, 2.5, 1.5),
+      new Props('tree', -7, 36, 36.5, -3.5, 2.5, 1.5),
+      new Props('tree', -1, 29, 29.5, 1.5, 2.5, 1.5),
+      new Props('tree', -9, 27 + 30, 27.5 + 30, -5.5, 2.5, 1.5),
+      new Props('tree', -7, 36 + 30, 36.5 + 30, -3.5, 2.5, 1.5),
+      new Props('tree', -5, 30 + 30, 30.5 + 30, -1.5, 2.5, 1.5),
+      new Props('tree', -3, 25 + 30, 25.5 + 30, 0.5, 2.5, 1.5),
+      new Upgradable('apple_tree', 30, -15, -14, 36, 3.5, 1.5),
+      new Upgradable('apple_tree', 30, -35, -34, 36, 3.5, 1.5),
+      new Bed('wheat', 54, -24, -24, 54, 4, 4),
+      new Bed('wheat', 64, -24, -24, 64, 4, 4),
+      new Bed('tomatoes', 54, -8, -8, 54, 4, 4),
+      new Bed('tomatoes', 64, -8, -8, 64, 4, 4),
+      new Bed('tomatoes', 74, -8, -8, 74, 4, 4),
+      new Props('edge', 0, 0, 17, 38, 2, 4),
+      new Props('edge', 0, 0, 19, 35, 2, 2),
+      new Props('edge', 0, 0, 21, 33, 2, 2),
+      new Props('edge', 0, 0, 23, 31, 2, 2),
+      new Props('edge', 0, 0, 25, 29, 2, 2),
+      new Props('edge', 0, 0, 36, 28, 20, 2),
+      new Props('edge', 0, 0, 19, 44, 2, 2),
+      new Props('edge', 0, 0, 21, 46, 2, 2),
+      new Props('edge', 0, 0, 23, 48, 2, 4),
+      new Props('edge', 0, 0, 25, 54, 2, 4),
+      new Props('edge', 0, 0, 27, 60, 2, 6),
+      new Props('edge', 0, 0, 25, 70, 2, 2),
+      new Props('edge', 0, 0, 23, 72, 2, 2),
+      new Props('edge', 0, 0, 21, 74, 2, 2),
+      new Props('edge', 0, 0, 19, 76, 2, 2),
+      new Props('edge', 0, 0, 15, 78, 4, 2),
+      new Props('edge', 0, 0, 11, 80, 2, 2),
+      new Props('edge', 0, 0, -7, 82, 13, 2),
+      new Props('edge', 0, 0, -17, 80, 2, 2),
+      new Props('edge', 0, 0, -20, 78, 2, 2),
+      new Props('edge', 0, 0, -22, 76, 2, 2),
+      new Props('edge', 0, 0, -26, 74, 2, 2),
+      new Props('edge', 0, 0, -28, 72, 2, 2),
+      new Props('edge', 0, 0, -30, 70, 2, 2),
+      new Props('edge', 0, 0, -32, 68, 2, 2),
+      new Props('edge', 0, 0, -34, 66, 2, 2),
+      new Props('edge', 0, 0, -37, 60, 2, 4),
+      new Props('edge', 0, 0, -39, 57, 2, 2),
+      new Props('edge', 0, 0, -41, 55, 2, 2),
+      new Props('edge', 0, 0, -43, 51, 2, 3),
+      new Props('edge', 0, 0, -45, 47, 2, 2),
+      new Props('edge', 0, 0, -47, 36, 2, 6),
+      new Props('edge', 0, 0, -46, 29, 2, 2),
+      new Props('edge', 0, 0, -45, 22, 2, 6),
+      new Props('edge', 0, 0, -43, 16, 2, 2),
+      new Props('edge', 0, 0, -41, 13, 2, 2),
+      new Props('edge', 0, 0, -38, 10, 2, 2),
+      new Props('edge', 0, 0, -27.5, 55, 1, 10),
+      new Props('edge', 0, 0, -0.5, 57, 1, 15),
+      new Props('edge', 0, 0, -24, 50, 5, 1),
+      new Props('edge', 0, 0, -9, 50, 5, 1),
     ]
     this.player = new Player()
   }
@@ -217,8 +319,7 @@ class Map {
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12 + this.player.width, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12 + this.player.height, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetX -= speed
             this.offsetY -= speed
             this.player.x += speed
@@ -239,8 +340,7 @@ class Map {
         this.player.y += speed
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12 + this.player.width, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12 + this.player.height, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetX -= speed
             this.offsetY += speed
             this.player.x += speed
@@ -261,8 +361,7 @@ class Map {
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12 + this.player.width, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12 + this.player.height, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetX += speed
             this.offsetY -= speed
             this.player.x -= speed
@@ -284,8 +383,7 @@ class Map {
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12 + this.player.width, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12 + this.player.height, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetX += speed
             this.offsetY += speed
             this.player.x -= speed
@@ -305,8 +403,7 @@ class Map {
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12 + this.player.width, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12 + this.player.height, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetX -= speed
             this.player.x += speed
           }
@@ -324,8 +421,7 @@ class Map {
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12 + this.player.width, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12 + this.player.height, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetX += speed
             this.player.x -= speed
           }
@@ -343,8 +439,7 @@ class Map {
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetY -= speed
             this.player.y += speed
           }
@@ -362,8 +457,7 @@ class Map {
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && this.player.x / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && this.player.y / 12 >= obj.collider.y) {
-            console.log(this.player.x / 12, obj.collider.x + obj.collider.width, this.player.x / 12 + this.player.width, obj.collider.x, this.player.y / 12, obj.collider.y + obj.collider.height, this.player.y / 12 + this.player.height, obj.collider.y)
+          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
             this.offsetY += speed
             this.player.y -= speed
           }
@@ -402,6 +496,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.collider {
+  transform: scale(1) !important;
+  position: absolute;
+  border: 2px solid red;
+  visibility: hidden;
+}
+
 .console {
   display: flex;
   padding: 25px;
@@ -491,7 +592,7 @@ onMounted(() => {
   display: flex;
   /* justify-content: space-between; */
   width: 100%;
-  gap: 35px;
+  gap: 45px;
   margin-top: -10px;
   margin-bottom: -10px;
 }
@@ -516,7 +617,7 @@ onMounted(() => {
 
 .horizontal_buttons {
   display: flex;
-  gap: 50px
+  gap: 60px
 }
 
 .button {
@@ -527,6 +628,8 @@ onMounted(() => {
   height: 60px;
   width: 60px;
   border-radius: 30px;
+  font-weight: bold;
+  font-size: 2em;
   background-color: var(--accent-color);
   box-shadow: inset -1px 1px 0.6px rgba(255, 255, 255, 0.250), -1px 1px 7px 4px rgba(0, 0, 0, 0.250);
 }
@@ -542,7 +645,6 @@ onMounted(() => {
 
 .world * {
   transform: scale(2);
-  transform-origin: left top;
   position: absolute;
   image-rendering: pixelated;
 }
@@ -553,6 +655,7 @@ onMounted(() => {
 
 .map_bg {
   position: relative;
+  left: -86px;
 }
 
 .house {
@@ -566,14 +669,57 @@ onMounted(() => {
 }
 
 .player {
-  width: 18px;
+  width: 15px;
+  transform-origin: left top;
 }
-.center{
+
+.center {
   height: 25px;
   width: 25px;
   border-radius: 25px;
   background-color: red;
   top: 0;
   left: 0;
+}
+
+.apple_tree {
+  width: 60px;
+}
+
+.upgradable {
+  transition: all 0.3s;
+}
+
+.upgradable:hover {
+  transform: scale(2.1);
+}
+
+.bed:hover {
+  transform: scale(2.2);
+}
+
+.money {
+  transform: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 25px;
+  color: white;
+  z-index: 100;
+  font-size: 12px;
+  background-color: #efca88;
+  border: 5px solid #b89a67;
+  border-radius: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.money>*{
+  position: relative;
+  gap:25px;
+}
+
+.screen_edge {
+  position: relative;
 }
 </style>
