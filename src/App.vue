@@ -45,24 +45,61 @@
 
         <div class="world">
           <div class="money" v-if="world != undefined">
+            <p>{{ player.money }}</p>
             <img src="./assets/coin.png" alt="">
-            <p>{{ world.player.money }}</p>
           </div>
-          <div class="intentory">
-            <div class="backpack_icon">
-              <img src="./assets/backpack.png" alt="">
+          <transition>
+            <div v-if="alertText" class="alert_container">
+              <div class="alert_box">
+                <p>{{ alertText }}</p>
+              </div>
+            </div>
+          </transition>
+          <div class="shop">
+            <div class="shop_header">
+                <button>Купить</button>
+                <button>Продать</button>
+              </div>
+            <div class="shop_inside">
+              <div class="shop_items">
+                <div class="item" v-for="(item, i) of shop" :key="i">
+                  <div class="item_image">
+                    <img :src="`./src/assets/${item.name}.png`" alt="">
+                    <p>{{ item.price }}</p>
+                  </div>
+                  <p>{{ item.title }}</p>
+                </div>
+              </div>
+              <img src="./assets/trader_portrait.png" alt="" class="trader_portrait">
             </div>
           </div>
-          <div class="map">
+          <div class="inventory" :class="backpackOpened ? '' : 'inventory_hidden'" v-if="world != undefined">
+            <div class="backpack_icon" @click="backpackOpened = !backpackOpened">
+              <img src="./assets/backpack2.png" alt="">
+            </div>
+            <div class="backpack_container">
+              <div class="item" v-for="(item, i) of player.inventory" :key="i" @click="pickedItem = item.name"
+                :class="item.name == pickedItem ? 'picked_item' : ''">
+                <div class="item_image">
+                  <img :src="`./src/assets/${item.name}.png`" alt="">
+                  <p>{{ item.quantity }}</p>
+                </div>
+                <p>{{ item.title }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="map" v-if="world != undefined"
+            :style="`transform: translate(${world.offsetX}px, ${world.offsetY}px) scale(1)`">
             <img src="./assets/map.png" alt="" class="map_bg">
-            <div class="shadow" v-if="world != undefined"
-              :style="`top:${world.player.y}px; left: ${world.player.x}px; background-color: rgba(0,0,0,0.2); width:38px; height:18px; border-radius:10px; transform:scaleY(0.5) scaleX(0.9) translateX(-5px) translateY(65px);`">
+            <div class="shadow"
+              :style="`top:${player.y}px; left: ${player.x}px; background-color: rgba(0,0,0,0.2); width:38px; height:18px; border-radius:10px; transform:scaleY(0.5) scaleX(0.9) translateX(-5px) translateY(65px);`">
             </div>
-            <img src="" alt="" class="player">
-            <img v-if="world != undefined" v-for="(obj, i) of world.objects" :key="i" :src="obj.image"
-              :class="obj.class" :style="`top:calc(12px*${obj.x});left:calc(12px*${obj.y})`" alt="" @click="test">
-            <img class="collider" v-if="world != undefined" v-for="(obj, i) of world.objects" :key="i"
-              :style="`top:calc(12px*${obj.collider.y});left:calc(12px*${obj.collider.x}); width:calc(12px*${obj.collider.width}); height:calc(12px*${obj.collider.height});`">
+            <img :src="player.src" alt="" class="player" :style="`top:${player.y}px; left:${player.x}px`">
+            <img v-for="(obj, i) of world.objects" :key="i" :src="obj.image" :class="obj.class"
+              :style="`top:calc(12px*${obj.x});left:calc(12px*${obj.y})`" alt="" @click="world.click(obj.id)">
+            <img class="collider" v-for="(obj, i) of world.objects" :key="i"
+              :style="`top:calc(12px*${obj.collider.y});left:calc(12px*${obj.collider.x}); width:calc(12px*${obj.collider.width}); height:calc(12px*${obj.collider.height});`"
+              :id="obj?.id" @click="obj?.id != undefined ? world.click(obj.id) : pass">
             <!-- <div v-if="world != undefined" class="center" :style="`width: 5px; height: 5px; top:calc(1px*${world.player.y});left:calc(1px*${world.player.x})`"></div> -->
           </div>
         </div>
@@ -95,7 +132,7 @@
           <div class="button">Y</div>
           <div class="button">A</div>
         </div>
-        <div class="button">B</div>
+        <div class="button" id="button_b" @click="showAlert('Вау, а ты любознательный😑')">B</div>
       </div>
       <div class="stick">
         <div class="stick-inside"></div>
@@ -115,38 +152,110 @@ const keys = {
   s: false
 }
 window.addEventListener('keydown', (e) => {
-  if (e.key == "a") {
+  if (e.key == "a" || e.key == "ArrowLeft") {
     keys.a = true
-  }
-  if (e.key == "d") {
+  } else if (e.key == "d" || e.key == "ArrowRight") {
     keys.d = true
-  }
-  if (e.key == "w") {
+  } else if (e.key == "w" || e.key == "ArrowUp") {
     keys.w = true
-  }
-  if (e.key == "s") {
+  } else if (e.key == "s" || e.key == "ArrowDown") {
     keys.s = true
-  }
-  if (e.key == "Tab") {
-    keys.s = true
+  } else if (e.key == "i" || e.key == "I") {
+    backpackOpened.value = !backpackOpened.value
+    document.querySelector('.arrow#down').style.filter = 'none'
+    setTimeout(() => {
+      document.querySelector('.arrow#down').style.filter = 'drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250)) drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250))'
+    }, 100);
   }
 })
 window.addEventListener('keyup', (e) => {
-  if (e.key == "a") {
+  if (e.key == "a" || e.key == "ArrowLeft") {
     keys.a = false
   }
-  if (e.key == "d") {
+  if (e.key == "d" || e.key == "ArrowRight") {
     keys.d = false
   }
-  if (e.key == "w") {
+  if (e.key == "w" || e.key == "ArrowUp") {
     keys.w = false
   }
-  if (e.key == "s") {
+  if (e.key == "s" || e.key == "ArrowDown") {
     keys.s = false
   }
 })
 
+const speed = 8
+const tileSize = 12
+const pickedItem = ref("")
+const backpackOpened = ref(false)
+const storeOpened = ref(false)
+
+
+const world = ref()
+const player = ref()
+let leftStick
+
+let alertText = ref("")
+
+const plantsGrowthSpeed = {
+  'item_tomatoes_seeds': 1000,
+  'item_wheat_seeds': 1000,
+  'item_apples': 1000
+}
+
+const itemsTitles = {
+  'item_tomatoes': 'Томаты',
+  'item_wheat': 'Пшеница',
+  'item_apples': 'Яблоки',
+  'item_tomatoes_seeds': 'Семена томатов',
+  'item_wheat_seeds': 'Семена пшеницы',
+  'item_fertilizer': 'Удобрение',
+}
+
+
+class Item {
+  constructor(name, price) {
+    this.name = name
+    this.price = price
+    this.title = itemsTitles[name]
+  }
+
+}
+
+const shop = ref([
+  new Item('item_wheat_seeds', 10),
+  new Item('item_tomatoes_seeds', 15),
+  new Item('item_fertilizer', 15),
+  new Item('item_apples', 10),
+  new Item('item_tomatoes', 10),
+  new Item('item_wheat', 10),
+])
+
+let alertInterval
+let alertAudio
+const showAlert = (text) => {
+  if (alertAudio) alertAudio.pause()
+  alertAudio = new Audio('./src/assets/sounds/talking.mp3')
+  alertAudio.play()
+  let i = 0
+  alertText.value = ""
+  if (alertInterval) clearInterval(alertInterval)
+  alertInterval = setInterval(() => {
+    alertText.value += text[i++]
+    if (alertText.value == text) {
+      alertAudio.pause()
+      clearInterval(alertInterval)
+      setTimeout(() => {
+        alertText.value = ""
+        return
+      }, 1000)
+    }
+  }, 50)
+}
+
+
+
 class Props {
+  static elements = 0
   constructor(name, x, y, cx, cy, cw, ch) {
     this.x = x
     this.y = y
@@ -166,33 +275,167 @@ class Props {
   }
 }
 
+class Animated extends Props {
+  constructor(name, x, y) {
+    super(name, x, y, -1000, -1000, 0, 0)
+    this.currentAnimation = 0
+    this.animateInterval = null
+    this.maxAnimation = 2
+  }
+  animate() {
+    this.animateInterval = setInterval(() => {
+      this.currentAnimation = (this.currentAnimation + 1) % this.maxAnimation
+    }, 100)
+  }
+}
+
+class Trader extends Animated {
+  constructor(name, x, y) {
+    super(name, x, y)
+    this.class += " trader"
+  }
+  click() {
+    storeOpened.value = true
+  }
+}
+
 class Upgradable extends Props {
   constructor(name, x, y, cx, cy, cw, ch) {
     super(name, x, y, cx, cy, cw, ch)
     this.level = 0
     this.class += " upgradable"
+    this.id = Props.elements++
   }
   get image() {
     return `./src/assets/${this.name}_lvl${this.level}.png`
   }
+
+}
+
+class AppleTree extends Upgradable {
+  static price = 50
+  constructor(name, x, y, cx, cy, cw, ch) {
+    super(name, x, y, cx, cy, cw, ch)
+    this.class += " apple_tree"
+    this.type = "item_apples"
+    this.plantingTime = null
+    this.maxLevel = 3
+  }
+  get image() {
+    return `./src/assets/apple_tree_lvl${this.level}.png`
+  }
+  click() {
+    let audio
+    switch (this.level) {
+      case 0:
+        if (player.value.money < AppleTree.price) {
+          showAlert('Мне не хватит денег...')
+          return
+        }
+        this.level++
+        player.value.money -= AppleTree.price
+        audio = new Audio('./src/assets/sounds/buy.wav')
+        audio.play()
+        AppleTree.price = Math.floor(AppleTree.price * 1.25)
+        break
+      case 1:
+        if (pickedItem.value.substring(5) != 'fertilizer') {
+          showAlert('Необходимо удобрение...')
+          return
+        }
+        audio = new Audio('./src/assets/sounds/plow.ogg')
+        audio.play()
+        this.level++
+        player.value.inventory.forEach(item => {
+          if (item.name == pickedItem.value) {
+            item.quantity--
+          }
+        })
+        this.plantingTime = new Date()
+        break
+      case 2:
+        showAlert('Слишком рано собирать урожай!')
+        return
+      case 3:
+        audio = new Audio('./src/assets/sounds/collect.mp3')
+        audio.play()
+        player.value.addToInventory(this.type)
+        this.level = 1
+        this.plantingTime = null
+    }
+  }
+
 }
 
 class Bed extends Upgradable {
+  static price = 50
   constructor(name, x, y, cx, cy, cw, ch) {
     super(name, x, y, cx, cy, cw, ch)
     this.class += " bed"
+    this.type = ""
+    this.plantingTime = null
+    this.maxLevel = 6
   }
   get image() {
-    return `./src/assets/bed_lvl${this.level}_${this.name}.png`
+    return `./src/assets/bed_lvl${this.level}_${this.type}.png`
+  }
+  click() {
+    let audio
+    switch (this.level) {
+      case 0:
+        if (player.value.money < Bed.price) {
+          showAlert('Мне не хватит денег...')
+          return
+        }
+        this.level++
+        player.value.money -= Bed.price
+        audio = new Audio('./src/assets/sounds/buy.wav')
+        audio.play()
+        Bed.price = Math.floor(Bed.price * 1.25)
+        break
+      case 1:
+        this.level++
+        audio = new Audio('./src/assets/sounds/plow.ogg')
+        audio.play()
+        break;
+      case 2:
+        if (pickedItem.value.substring(pickedItem.value.length - 5, pickedItem.value.length) != 'seeds') {
+          showAlert('Надо выбрать семена...')
+          return
+        }
+        this.level++
+        audio = new Audio('./src/assets/sounds/plow.ogg')
+        audio.play()
+        this.type = pickedItem.value
+        player.value.inventory.forEach(item => {
+          if (item.name == pickedItem.value) {
+            item.quantity--
+          }
+        })
+        this.plantingTime = new Date()
+        break
+      case 3:
+        showAlert('Слишком рано собирать урожай!')
+        return
+      case 4:
+        showAlert('Слишком рано собирать урожай!')
+        return
+      case 5:
+        showAlert('Слишком рано собирать урожай!')
+        return
+      case 6:
+        audio = new Audio('./src/assets/sounds/collect.mp3')
+        audio.play()
+        player.value.addToInventory(this.type.substring(0, this.type.length - 6))
+        this.level = 1
+        this.type = ""
+        this.plantingTime = null
+    }
   }
 }
 
-const speed = 4
-const tileSize = 12
 
-const test = (e) => {
-  console.log(e.target.height)
-}
+
 
 class Player {
   constructor() {
@@ -202,20 +445,52 @@ class Player {
     this.y = 390;
     this.currentAnimation = 0
     this.direction = "down"
-    this.img = document.querySelector('.player')
+    this.src = './src/assets/player_down1.png'
     this.animateInterval = null
-    this.inventory = []
+    this.inventory = [
+      {
+        title: 'Семена пшеницы',
+        name: 'item_wheat_seeds',
+        quantity: 10
+      },
+      {
+        title: 'Семена томатов',
+        name: 'item_tomatoes_seeds',
+        quantity: 10
+      },
+      {
+        title: 'Удобрение',
+        name: 'item_fertilizer',
+        quantity: 10
+      },
+    ]
     this.money = 100
   }
   draw() {
-    this.img.src = `./src/assets/player_${this.direction}${this.currentAnimation}.png`
-    this.img.style.top = `${this.y}px`
-    this.img.style.left = `${this.x}px`
+    this.src = `./src/assets/player_${this.direction}${this.currentAnimation}.png`
   }
   animate() {
     this.animateInterval = setInterval(() => {
       this.currentAnimation = (this.currentAnimation + 1) % 4
     }, 100)
+  }
+
+  addToInventory(name) {
+    let f = true
+    this.inventory.forEach(item => {
+      if (item.name == name) {
+        item.quantity++
+        f = false
+        return
+      }
+    })
+    if (f) {
+      this.inventory.push({
+        name: name,
+        title: itemsTitles[name],
+        quantity: 1
+      })
+    }
   }
 
 }
@@ -224,14 +499,14 @@ class Player {
 class Map {
   constructor() {
     this.image = new Image()
-    this.world = document.querySelector('.map')
+    // this.world = document.querySelector('.map')
     this.globalOffsetX = 600
     this.globalOffsetY = 0
     this.scale = 2
     this.objects = [
       // Get from json
       new Props('lake', 17, 102, 102, 17, 4, 5),
-      new Upgradable('house', 23, -24, -24, 26, 4, 4),
+      new Props('house', 23, -24, -24, 26, 4, 4),
       new Props('tree', -5, 25, 25.5, -1.5, 2.5, 1.5),
       new Props('tree', -3, 20, 20.5, 0.5, 2.5, 1.5),
       new Props('tree', -9, 30, 30.5, -5.5, 2.5, 1.5),
@@ -241,13 +516,14 @@ class Map {
       new Props('tree', -7, 36 + 30, 36.5 + 30, -3.5, 2.5, 1.5),
       new Props('tree', -5, 30 + 30, 30.5 + 30, -1.5, 2.5, 1.5),
       new Props('tree', -3, 25 + 30, 25.5 + 30, 0.5, 2.5, 1.5),
-      new Upgradable('apple_tree', 30, -15, -14, 36, 3.5, 1.5),
-      new Upgradable('apple_tree', 30, -35, -34, 36, 3.5, 1.5),
-      new Bed('wheat', 54, -24, -24, 54, 4, 4),
-      new Bed('wheat', 64, -24, -24, 64, 4, 4),
-      new Bed('tomatoes', 54, -8, -8, 54, 4, 4),
-      new Bed('tomatoes', 64, -8, -8, 64, 4, 4),
-      new Bed('tomatoes', 74, -8, -8, 74, 4, 4),
+      new Props('shop', -10, 45, 45, -5, 5, 3),
+      new AppleTree('apple_tree', 30, -15, -14, 37, 3.5, 1.5, 75),
+      new AppleTree('apple_tree', 30, -35, -34, 37, 3.5, 1.5, 75),
+      new Bed('bed', 54, -24, -24, 54, 4, 4, 50),
+      new Bed('bed', 64, -24, -24, 64, 4, 4, 50),
+      new Bed('bed', 54, -8, -8, 54, 4, 4, 50),
+      new Bed('bed', 64, -8, -8, 64, 4, 4, 50),
+      new Bed('bed', 74, -8, -8, 74, 4, 4, 50),
       new Props('edge', 0, 0, 17, 38, 2, 4),
       new Props('edge', 0, 0, 19, 35, 2, 2),
       new Props('edge', 0, 0, 21, 33, 2, 2),
@@ -287,10 +563,9 @@ class Map {
       new Props('edge', 0, 0, -38, 10, 2, 2),
       new Props('edge', 0, 0, -27.5, 55, 1, 10),
       new Props('edge', 0, 0, -0.5, 57, 1, 15),
-      new Props('edge', 0, 0, -24, 50, 5, 1),
-      new Props('edge', 0, 0, -9, 50, 5, 1),
+      new Props('edge', 0, 0, -24, 49.5, 5, 1),
+      new Props('edge', 0, 0, -9, 49.5, 5, 1),
     ]
-    this.player = new Player()
   }
   get offsetX() {
     return this.globalOffsetX
@@ -307,188 +582,208 @@ class Map {
   animate() {
     switch (true) {
       case keys.a && keys.w:
-        this.player.direction = "left"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "left"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(-25px, -25px)"
-        this.offsetX += speed
-        this.offsetY += speed
-        this.player.x -= speed
-        this.player.y -= speed
+        this.offsetX += speed / 1.5
+        this.offsetY += speed / 1.5
+        player.value.x -= speed / 1.5
+        player.value.y -= speed / 1.5
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
-            this.offsetX -= speed
-            this.offsetY -= speed
-            this.player.x += speed
-            this.player.y += speed
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
+            this.offsetX -= speed / 1.5
+            this.offsetY -= speed / 1.5
+            player.value.x += speed / 1.5
+            player.value.y += speed / 1.5
           }
         }
 
         break;
       case keys.a && keys.s:
-        this.player.direction = "left"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "left"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(-25px, 25px)"
-        this.offsetX += speed
-        this.offsetY -= speed
-        this.player.x -= speed
-        this.player.y += speed
+        this.offsetX += speed / 1.5
+        this.offsetY -= speed / 1.5
+        player.value.x -= speed / 1.5
+        player.value.y += speed / 1.5
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
-            this.offsetX -= speed
-            this.offsetY += speed
-            this.player.x += speed
-            this.player.y -= speed
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
+            this.offsetX -= speed / 1.5
+            this.offsetY += speed / 1.5
+            player.value.x += speed / 1.5
+            player.value.y -= speed / 1.5
           }
         }
         break;
       case keys.d && keys.w:
-        this.player.direction = "right"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "right"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(25px, -25px)"
-        this.offsetX -= speed
-        this.offsetY += speed
-        this.player.x += speed
-        this.player.y -= speed
+        this.offsetX -= speed / 1.5
+        this.offsetY += speed / 1.5
+        player.value.x += speed / 1.5
+        player.value.y -= speed / 1.5
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
-            this.offsetX += speed
-            this.offsetY -= speed
-            this.player.x -= speed
-            this.player.y += speed
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
+            this.offsetX += speed / 1.5
+            this.offsetY -= speed / 1.5
+            player.value.x -= speed / 1.5
+            player.value.y += speed / 1.5
           }
         }
 
         break;
       case keys.d && keys.s:
-        this.player.direction = "right"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "right"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(25px, 25px)"
-        this.offsetX -= speed
-        this.offsetY -= speed
-        this.player.x += speed
-        this.player.y += speed
+        this.offsetX -= speed / 1.5
+        this.offsetY -= speed / 1.5
+        player.value.x += speed / 1.5
+        player.value.y += speed / 1.5
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
-            this.offsetX += speed
-            this.offsetY += speed
-            this.player.x -= speed
-            this.player.y -= speed
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
+            this.offsetX += speed / 1.5
+            this.offsetY += speed / 1.5
+            player.value.x -= speed / 1.5
+            player.value.y -= speed / 1.5
           }
         }
 
         break;
       case keys.a:
-        this.player.direction = "left"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "left"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(-25px, 0)"
         this.offsetX += speed
-        this.player.x -= speed
+        player.value.x -= speed
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
             this.offsetX -= speed
-            this.player.x += speed
+            player.value.x += speed
           }
         }
 
         break;
       case keys.d:
-        this.player.direction = "right"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "right"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(25px, 0)"
         this.offsetX -= speed
-        this.player.x += speed
+        player.value.x += speed
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
             this.offsetX += speed
-            this.player.x -= speed
+            player.value.x -= speed
           }
         }
 
         break;
       case keys.w:
-        this.player.direction = "up"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "up"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(0, -25px)"
         this.offsetY += speed
-        this.player.y -= speed
+        player.value.y -= speed
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
             this.offsetY -= speed
-            this.player.y += speed
+            player.value.y += speed
           }
         }
 
         break;
       case keys.s:
-        this.player.direction = "down"
-        if (this.player.animateInterval == null) {
-          this.player.animate()
+        player.value.direction = "down"
+        if (player.value.animateInterval == null) {
+          player.value.animate()
         }
         leftStick.style.transform = "translate(0, 25px)"
         this.offsetY -= speed
-        this.player.y += speed
+        player.value.y += speed
 
         for (let i = 0; i < this.objects.length; i++) {
           const obj = this.objects[i]
-          if (this.player.x / 12 <= obj.collider.x + obj.collider.width && (this.player.x + this.player.width * 2) / 12 >= obj.collider.x && this.player.y / 12 <= obj.collider.y + obj.collider.height && (this.player.y + this.player.height * 2) / 12 >= obj.collider.y) {
+          if (player.value.x / 12 <= obj.collider.x + obj.collider.width && (player.value.x + player.value.width * 2) / 12 >= obj.collider.x && player.value.y / 12 <= obj.collider.y + obj.collider.height && (player.value.y + player.value.height * 2) / 12 >= obj.collider.y) {
             this.offsetY += speed
-            this.player.y -= speed
+            player.value.y -= speed
           }
         }
 
         break;
       default:
-        clearInterval(this.player.animateInterval)
+        clearInterval(player.value.animateInterval)
         leftStick.style.transform = "translate(0, 0)"
-        this.player.animateInterval = null
+        player.value.animateInterval = null
+        player.value.currentAnimation = 0
         break;
     }
-    this.world.style.transform = `translate(${this.offsetX}px, ${this.offsetY}px) scale(1)`
-    this.player.draw()
+    // this.world.style.transform = `translate(${this.offsetX}px, ${this.offsetY}px) scale(1)`
+    player.value.draw()
+  }
+
+  click(id) {
+    this.objects.forEach(el => {
+      if (el.id != id) return
+      el.click()
+    })
+  }
+
+  grow() {
+    this.objects.forEach(el => {
+      if (!el.plantingTime) return
+      if (el.level == el.maxLevel) return
+      let now = Date.now()
+      if (now - el.plantingTime > plantsGrowthSpeed[el.type]) {
+        el.level++
+        el.plantingTime = new Date()
+      }
+    })
   }
 }
 
-const world = ref()
-let leftStick
+
+
+
 onMounted(() => {
-  world.value = new Map()
+  player.value = new Player()
+  world.value = new Map(player.value)
   leftStick = document.querySelector('#left_stick')
   setInterval(() => {
     world.value.animate()
   }, 1000 / 60)
+  setInterval(() => {
+    world.value.grow()
+  }, 1000)
 })
-
-
-
-
-
 
 
 
@@ -579,6 +874,7 @@ onMounted(() => {
 }
 
 .arrow#down {
+  transition: all 0.3s;
   filter: drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250)) drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250));
   transform: rotate(180deg);
 }
@@ -631,7 +927,12 @@ onMounted(() => {
   font-weight: bold;
   font-size: 2em;
   background-color: var(--accent-color);
+  transition: all 0.3s;
   box-shadow: inset -1px 1px 0.6px rgba(255, 255, 255, 0.250), -1px 1px 7px 4px rgba(0, 0, 0, 0.250);
+}
+
+#button_b:active {
+  box-shadow: inset -1px 1px 0.6px rgba(255, 255, 255, 0.250), -1px 1px 7px 0px rgba(0, 0, 0, 0.250);
 }
 
 
@@ -655,7 +956,8 @@ onMounted(() => {
 
 .map_bg {
   position: relative;
-  left: -86px;
+  left: -90px;
+  top: -12px;
 }
 
 .house {
@@ -706,20 +1008,224 @@ onMounted(() => {
   padding: 25px;
   color: white;
   z-index: 100;
-  font-size: 12px;
-  background-color: #efca88;
-  border: 5px solid #b89a67;
-  border-radius: 15px;
+  font-size: 24px;
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 5px;
 }
-.money>*{
+
+.money>img {
+  width: 24px;
+}
+
+.money * {
+  transform: none;
   position: relative;
-  gap:25px;
 }
 
 .screen_edge {
   position: relative;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+.inventory {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 15px;
+  background-color: #efca88;
+  border: 5px solid #b89a67;
+  z-index: 100;
+  transform: none;
+  border-radius: 15px;
+  height: 100%;
+  transition: all 0.3s;
+}
+
+.inventory * {
+  transform: none;
+  position: relative;
+}
+
+.inventory_hidden {
+  transform: translateX(-100%);
+}
+
+.backpack_container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  height: 100%;
+  overflow-y: scroll;
+}
+
+.backpack_icon {
+  padding: 5px;
+  padding-left: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 25px;
+  right: -69px;
+  background-color: #efca88;
+  border: 5px solid #b89a67;
+  border-left: none;
+  border-radius: 0 15px 15px 0;
+  cursor: pointer;
+}
+
+.backpack_icon>img {
+  width: 50px;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: bold;
+  gap: 5px;
+  padding: 15px;
+  border-radius: 15px;
+  box-shadow: inset 0 0 10px 0px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.item img {
+  width: 40px;
+}
+
+.item_image {
+  position: relative;
+}
+
+.item_image>p {
+  position: absolute !important;
+  bottom: -5px;
+  right: -5px;
+  /* padding: 5px; */
+  border: 2px solid #b89a67;
+  background-color: #efca88;
+  border-radius: 50px;
+}
+
+.item>p {
+  width: min-content;
+  text-align: center;
+  line-height: 12px;
+}
+
+.picked_item {
+  box-sizing: border-box;
+  box-shadow: inset 0 0 10px 0px rgba(0, 0, 0, 0.5), 0 0 0 2px white;
+}
+
+.alert_container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  transform: none;
+}
+
+.alert_box * {
+  transform: none;
+}
+
+.alert_box {
+  z-index: 100;
+  padding: 5px;
+  border: 2px solid #b89a67;
+  background-color: #efca88;
+  border-radius: 5px;
+  font-size: 0.7em;
+  color: #b89a67;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  height: fit-content;
+}
+
+.alert_box>* {
+  position: relative;
+}
+
+.alert_box::before {
+  content: '';
+  bottom: -8px;
+  width: 10px;
+  height: 10px;
+  background-color: #efca88;
+  border: 2px solid #b89a67;
+  border-top: none;
+  border-left: none;
+  rotate: 45deg;
+  position: absolute;
+}
+
+.v-enter-active,
+.v-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.v-enter-from,
+.v-leave-to {
+  opacity: 0;
+}
+
+div.shop {
+  z-index: 100;
+  transform: none;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  padding: 25px;
+  background-color: #efca88;
+  border: 5px solid #b89a67;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-radius: 15px;
+}
+.shop_inside{
+  display: flex;
+  justify-content: space-between;
+  height: 100%;
+}
+div.shop * {
+  transform: none;
+  position: relative;
+}
+
+.trader_portrait {
+  height: 150px;
+  margin-top: -25px;
+}
+
+.shop_items {
+  height: 120px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 15px;
+  overflow-y: scroll;
+}
+
+div.shop .item {
+  width: 100%;
+  height: 100%;
 }
 </style>
