@@ -55,14 +55,16 @@
               </div>
             </div>
           </transition>
-          <div class="shop">
+          <div class="shop" :class="shopOpened ? '' : 'shop_hidden'">
             <div class="shop_header">
-                <button>Купить</button>
-                <button>Продать</button>
-              </div>
+              <button @click="shopSection = true" :class="shopSection ? 'active' : ''">Купить</button>
+              <button @click="shopSection = false" :class="shopSection ? '' : 'active'">Продать</button>
+              <button @click="closeStore">X</button>
+            </div>
             <div class="shop_inside">
               <div class="shop_items">
-                <div class="item" v-for="(item, i) of shop" :key="i">
+                <div class="item" v-for="(item, i) of (shopSection ? shopSell : shopBuy)" :key="i"
+                  @click="trade(item.name)">
                   <div class="item_image">
                     <img :src="`./src/assets/${item.name}.png`" alt="">
                     <p>{{ item.price }}</p>
@@ -74,7 +76,7 @@
             </div>
           </div>
           <div class="inventory" :class="backpackOpened ? '' : 'inventory_hidden'" v-if="world != undefined">
-            <div class="backpack_icon" @click="backpackOpened = !backpackOpened">
+            <div class="backpack_icon" @click="changeBackpack">
               <img src="./assets/backpack2.png" alt="">
             </div>
             <div class="backpack_container">
@@ -92,11 +94,14 @@
             :style="`transform: translate(${world.offsetX}px, ${world.offsetY}px) scale(1)`">
             <img src="./assets/map.png" alt="" class="map_bg">
             <div class="shadow"
-              :style="`top:${player.y}px; left: ${player.x}px; background-color: rgba(0,0,0,0.2); width:38px; height:18px; border-radius:10px; transform:scaleY(0.5) scaleX(0.9) translateX(-5px) translateY(65px);`">
+              :style="`top:${player.y}px; left: ${player.x}px; background-color: rgba(0,0,0,0.2); width:38px; height:18px; border-radius:10px; transform:scaleY(0.5) scaleX(0.9) translateX(-5px) translateY(55px);`">
             </div>
             <img :src="player.src" alt="" class="player" :style="`top:${player.y}px; left:${player.x}px`">
-            <img v-for="(obj, i) of world.objects" :key="i" :src="obj.image" :class="obj.class"
-              :style="`top:calc(12px*${obj.x});left:calc(12px*${obj.y})`" alt="" @click="world.click(obj.id)">
+            <div class="props" v-for="(obj, i) of world.objects" :key="i" :class="obj.class"
+              :style="`top:calc(12px*${obj.x});left:calc(12px*${obj.y})`" @click="world.click(obj.id)">
+              <h3 v-if="obj.constructor.price && obj.level == 0">{{ obj.constructor.price }}</h3>
+              <img :src="obj.image" alt="">
+            </div>
             <img class="collider" v-for="(obj, i) of world.objects" :key="i"
               :style="`top:calc(12px*${obj.collider.y});left:calc(12px*${obj.collider.x}); width:calc(12px*${obj.collider.width}); height:calc(12px*${obj.collider.height});`"
               :id="obj?.id" @click="obj?.id != undefined ? world.click(obj.id) : pass">
@@ -127,7 +132,7 @@
         <div class="sound_dot"></div>
       </div>
       <div class="buttons">
-        <div class="button">X</div>
+        <div class="button" @click="playMusic">X</div>
         <div class="horizontal_buttons">
           <div class="button">Y</div>
           <div class="button">A</div>
@@ -161,13 +166,21 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key == "s" || e.key == "ArrowDown") {
     keys.s = true
   } else if (e.key == "i" || e.key == "I") {
-    backpackOpened.value = !backpackOpened.value
-    document.querySelector('.arrow#down').style.filter = 'none'
-    setTimeout(() => {
-      document.querySelector('.arrow#down').style.filter = 'drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250)) drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250))'
-    }, 100);
+    changeBackpack()
   }
 })
+
+const changeBackpack = () => {
+  backpackOpened.value = !backpackOpened.value
+  if (backpackOpened.value) pickedItem.value = ""
+  openSound.play()
+  document.querySelector('.arrow#down').style.filter = 'none'
+  setTimeout(() => {
+    document.querySelector('.arrow#down').style.filter = 'drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250)) drop-shadow(1px -1px 2px rgba(0, 0, 0, 0.250))'
+  }, 100)
+}
+
+
 window.addEventListener('keyup', (e) => {
   if (e.key == "a" || e.key == "ArrowLeft") {
     keys.a = false
@@ -183,23 +196,60 @@ window.addEventListener('keyup', (e) => {
   }
 })
 
-const speed = 8
+const speed = 4
 const tileSize = 12
 const pickedItem = ref("")
 const backpackOpened = ref(false)
-const storeOpened = ref(false)
+const shopOpened = ref(false)
 
 
 const world = ref()
 const player = ref()
 let leftStick
 
+
+
+const music = new Audio('./src/assets/sounds/music.mp3')
+const ambient = new Audio('./src/assets/sounds/ambient.mp3')
+music.loop = true
+music.volume = 0.5
+ambient.loop = true
+
+
+let musicOn = false
+const playMusic = () => {
+  if (musicOn) {
+    music.pause()
+    ambient.pause()
+    musicOn = false
+  } else {
+    music.play()
+    ambient.play()
+    musicOn = true
+  }
+}
+
+const walkingSound = new Audio('./src/assets/sounds/walking.mp3')
+walkingSound.volume = 0.4
+
+const clickSound = new Audio('./src/assets/sounds/click.mp3')
+const openSound = new Audio('./src/assets/sounds/open.mp3')
+
+
+
 let alertText = ref("")
 
+const closeStore = () => {
+  clickSound.play()
+  openSound.play()
+  shopOpened.value = false
+}
+
 const plantsGrowthSpeed = {
-  'item_tomatoes_seeds': 1000,
-  'item_wheat_seeds': 1000,
-  'item_apples': 1000
+  'item_tomatoes_seeds': 15000,
+  'item_wheat_seeds': 10000,
+  'item_apples': 20000,
+  'item_berries': 10000
 }
 
 const itemsTitles = {
@@ -209,6 +259,9 @@ const itemsTitles = {
   'item_tomatoes_seeds': 'Семена томатов',
   'item_wheat_seeds': 'Семена пшеницы',
   'item_fertilizer': 'Удобрение',
+  'item_hoe': 'Мотыга',
+  'item_watering_can': 'Лейка',
+  'item_berries': 'Ягоды'
 }
 
 
@@ -218,17 +271,88 @@ class Item {
     this.price = price
     this.title = itemsTitles[name]
   }
+}
+
+const save = () => {
+  localStorage.setItem('player', JSON.stringify(player.value))
+  world.value.objects.forEach(el => {
+    if (el.id) {
+      localStorage.setItem(`id${el.id}`, JSON.stringify(el))
+    }
+  })
+}
+
+const load = () => {
+  if (localStorage.getItem('player')) {
+    let obj = JSON.parse(localStorage.getItem('player'))
+    player.value.money = obj.money
+    player.value.inventory = obj.inventory
+  }
+  world.value.objects.forEach(el => {
+    if (el.id) {
+      let obj = JSON.parse(localStorage.getItem(`id${el.id}`))
+      el.level = obj.level
+      el.plantingTime = Date.parse(obj.plantingTime)
+    }
+  })
 
 }
 
-const shop = ref([
+const shopSection = ref(true) // true = sell, false = buy
+
+const shopSell = ref([
   new Item('item_wheat_seeds', 10),
   new Item('item_tomatoes_seeds', 15),
   new Item('item_fertilizer', 15),
-  new Item('item_apples', 10),
-  new Item('item_tomatoes', 10),
-  new Item('item_wheat', 10),
+  new Item('item_hoe', 15),
+  new Item('item_watering_can', 50),
 ])
+
+const shopBuy = ref([
+  new Item('item_wheat', 20),
+  new Item('item_tomatoes', 25),
+  new Item('item_apples', 35),
+  new Item('item_berries', 10),
+])
+
+const trade = (item) => {
+  if (!shopSection.value) {
+    let f = true
+    player.value.inventory.forEach((el, i) => {
+      if (el.name == item) {
+        if (el.quantity == 1) {
+          player.value.inventory.splice(i, 1)
+        } else {
+          el.quantity--
+        }
+        let price
+        shopBuy.value.forEach(el => {
+          if (el.name == item) price = el.price
+        })
+        player.value.money += price
+        let audio = new Audio('./src/assets/sounds/buy.wav')
+        audio.play()
+        f = false
+        return
+      }
+    })
+    if (f) showAlert('У меня нет этого товара...')
+    return
+  } else {
+    let price
+    shopSell.value.forEach(el => {
+      if (el.name == item) price = el.price
+    })
+    if (player.value.money < price) {
+      showAlert('Мне не хватит денег...')
+      return
+    }
+    player.value.money -= price
+    player.value.addToInventory(item)
+    let audio = new Audio('./src/assets/sounds/buy.wav')
+    audio.play()
+  }
+}
 
 let alertInterval
 let alertAudio
@@ -255,7 +379,7 @@ const showAlert = (text) => {
 
 
 class Props {
-  static elements = 0
+  static elements = 1
   constructor(name, x, y, cx, cy, cw, ch) {
     this.x = x
     this.y = y
@@ -281,21 +405,28 @@ class Animated extends Props {
     this.currentAnimation = 0
     this.animateInterval = null
     this.maxAnimation = 2
+    this.animationTime = 100
   }
   animate() {
     this.animateInterval = setInterval(() => {
       this.currentAnimation = (this.currentAnimation + 1) % this.maxAnimation
-    }, 100)
+    }, this.animationTime)
   }
 }
 
 class Trader extends Animated {
   constructor(name, x, y) {
     super(name, x, y)
+    this.id = Props.elements++
     this.class += " trader"
+    this.maxAnimation = 2
+    this.animationTime = 500
+  }
+  get image() {
+    return `./src/assets/${this.name}_a${this.currentAnimation}.png`
   }
   click() {
-    storeOpened.value = true
+    shopOpened.value = true
   }
 }
 
@@ -346,11 +477,64 @@ class AppleTree extends Upgradable {
         audio = new Audio('./src/assets/sounds/plow.ogg')
         audio.play()
         this.level++
-        player.value.inventory.forEach(item => {
+        player.value.inventory.forEach((item, i) => {
           if (item.name == pickedItem.value) {
-            item.quantity--
+            if (item.quantity == 1) {
+              player.value.inventory.splice(i, 1)
+            } else {
+              item.quantity--
+            }
           }
         })
+        this.plantingTime = new Date()
+        break
+      case 2:
+        showAlert('Слишком рано собирать урожай!')
+        return
+      case 3:
+        audio = new Audio('./src/assets/sounds/collect.mp3')
+        audio.play()
+        player.value.addToInventory(this.type)
+        this.level = 1
+        this.plantingTime = null
+    }
+  }
+}
+
+class Berries extends Upgradable {
+  static price = 25
+  constructor(name, x, y, cx, cy, cw, ch) {
+    super(name, x, y, cx, cy, cw, ch)
+    this.class += " berry_bush"
+    this.type = "item_berries"
+    this.plantingTime = null
+    this.maxLevel = 3
+  }
+  get image() {
+    return `./src/assets/berries_lvl${this.level}.png`
+  }
+  click() {
+    let audio
+    switch (this.level) {
+      case 0:
+        if (player.value.money < Berries.price) {
+          showAlert('Мне не хватит денег...')
+          return
+        }
+        this.level++
+        player.value.money -= Berries.price
+        audio = new Audio('./src/assets/sounds/buy.wav')
+        audio.play()
+        Berries.price = Math.floor(Berries.price * 1.25)
+        break
+      case 1:
+        if (pickedItem.value.substring(5) != 'watering_can') {
+          showAlert('Необходима лейка...')
+          return
+        }
+        audio = new Audio('./src/assets/sounds/plow.ogg')
+        audio.play()
+        this.level++
         this.plantingTime = new Date()
         break
       case 2:
@@ -394,6 +578,10 @@ class Bed extends Upgradable {
         Bed.price = Math.floor(Bed.price * 1.25)
         break
       case 1:
+        if (pickedItem.value != 'item_hoe') {
+          showAlert('Необходима мотыга...')
+          return
+        }
         this.level++
         audio = new Audio('./src/assets/sounds/plow.ogg')
         audio.play()
@@ -407,9 +595,13 @@ class Bed extends Upgradable {
         audio = new Audio('./src/assets/sounds/plow.ogg')
         audio.play()
         this.type = pickedItem.value
-        player.value.inventory.forEach(item => {
+        player.value.inventory.forEach((item, i) => {
           if (item.name == pickedItem.value) {
-            item.quantity--
+            if (item.quantity == 1) {
+              player.value.inventory.splice(i, 1)
+            } else {
+              item.quantity--
+            }
           }
         })
         this.plantingTime = new Date()
@@ -451,17 +643,7 @@ class Player {
       {
         title: 'Семена пшеницы',
         name: 'item_wheat_seeds',
-        quantity: 10
-      },
-      {
-        title: 'Семена томатов',
-        name: 'item_tomatoes_seeds',
-        quantity: 10
-      },
-      {
-        title: 'Удобрение',
-        name: 'item_fertilizer',
-        quantity: 10
+        quantity: 1
       },
     ]
     this.money = 100
@@ -472,6 +654,7 @@ class Player {
   animate() {
     this.animateInterval = setInterval(() => {
       this.currentAnimation = (this.currentAnimation + 1) % 4
+      walkingSound.play()
     }, 100)
   }
 
@@ -516,9 +699,18 @@ class Map {
       new Props('tree', -7, 36 + 30, 36.5 + 30, -3.5, 2.5, 1.5),
       new Props('tree', -5, 30 + 30, 30.5 + 30, -1.5, 2.5, 1.5),
       new Props('tree', -3, 25 + 30, 25.5 + 30, 0.5, 2.5, 1.5),
-      new Props('shop', -10, 45, 45, -5, 5, 3),
-      new AppleTree('apple_tree', 30, -15, -14, 37, 3.5, 1.5, 75),
-      new AppleTree('apple_tree', 30, -35, -34, 37, 3.5, 1.5, 75),
+      new Props('stone', 15, 55, 55, 16, 1, 0),
+      new Props('stone', 23, 30, 30, 23, 1, 0),
+      new Props('log', 1, 15, 15, 2, 1, 0),
+      new Props('store', -10, 45, 45, -5, 5, 3),
+      new AppleTree('apple_tree', 30, -15, -14, 37, 3.5, 1.5),
+      new AppleTree('apple_tree', 30, -35, -34, 37, 3.5, 1.5),
+      new Berries('berry_bush', 10, -10, -10, 10, 1, 1),
+      new Berries('berry_bush', 10, -15, -15, 10, 1, 1),
+      new Berries('berry_bush', 10, -20, -20, 10, 1, 1),
+      new Berries('berry_bush', 15, -18, -18, 15, 1, 1),
+      new Berries('berry_bush', 15, -13, -13, 15, 1, 1),
+      new Trader('trader', -2, 45),
       new Bed('bed', 54, -24, -24, 54, 4, 4, 50),
       new Bed('bed', 64, -24, -24, 64, 4, 4, 50),
       new Bed('bed', 54, -8, -8, 54, 4, 4, 50),
@@ -741,6 +933,7 @@ class Map {
         break;
       default:
         clearInterval(player.value.animateInterval)
+        walkingSound.pause()
         leftStick.style.transform = "translate(0, 0)"
         player.value.animateInterval = null
         player.value.currentAnimation = 0
@@ -761,6 +954,7 @@ class Map {
     this.objects.forEach(el => {
       if (!el.plantingTime) return
       if (el.level == el.maxLevel) return
+      console.log(el)
       let now = Date.now()
       if (now - el.plantingTime > plantsGrowthSpeed[el.type]) {
         el.level++
@@ -772,18 +966,24 @@ class Map {
 
 
 
-
 onMounted(() => {
+
   player.value = new Player()
   world.value = new Map(player.value)
   leftStick = document.querySelector('#left_stick')
   setInterval(() => {
     world.value.animate()
   }, 1000 / 60)
+  world.value.objects.forEach(el => {
+    if (el instanceof Animated) el.animate()
+  })
   setInterval(() => {
     world.value.grow()
   }, 1000)
+  load()
+  window.addEventListener('beforeunload', save)
 })
+
 
 
 
@@ -931,7 +1131,7 @@ onMounted(() => {
   box-shadow: inset -1px 1px 0.6px rgba(255, 255, 255, 0.250), -1px 1px 7px 4px rgba(0, 0, 0, 0.250);
 }
 
-#button_b:active {
+.button:active {
   box-shadow: inset -1px 1px 0.6px rgba(255, 255, 255, 0.250), -1px 1px 7px 0px rgba(0, 0, 0, 0.250);
 }
 
@@ -966,12 +1166,10 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
-.house:hover {
-  transform: scale(2.2);
-}
+
 
 .player {
-  width: 15px;
+  width: 13px;
   transform-origin: left top;
 }
 
@@ -1085,8 +1283,11 @@ onMounted(() => {
 
 .item {
   display: flex;
+  height: 110px !important;
+  width: 110px;
   flex-direction: column;
   align-items: center;
+  justify-content: space-between;
   font-weight: bold;
   gap: 5px;
   padding: 15px;
@@ -1199,12 +1400,19 @@ div.shop {
   flex-direction: column;
   gap: 15px;
   border-radius: 15px;
+  transition: all 0.3s;
 }
-.shop_inside{
+
+.shop_hidden {
+  transform: translateY(100%) !important;
+}
+
+.shop_inside {
   display: flex;
   justify-content: space-between;
   height: 100%;
 }
+
 div.shop * {
   transform: none;
   position: relative;
@@ -1227,5 +1435,66 @@ div.shop * {
 div.shop .item {
   width: 100%;
   height: 100%;
+}
+
+.shop_header {
+  display: flex;
+  gap: 15px;
+}
+
+div.shop button {
+  padding: 5px 10px;
+  border-radius: 10px;
+  background-color: #efca88;
+  border: none;
+  transition: all 0.3s;
+  box-shadow: 0 0 10px 0px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+div.shop button.active {
+  box-shadow: 0 0 3px 0px rgba(0, 0, 0, 0.5);
+}
+
+.trader {
+  transition: all 0.3s;
+}
+
+.trader:hover {
+  transform: scale(2.3);
+}
+
+
+
+
+.props {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.props>h3 {
+  display: none !important;
+  line-height: 6px;
+  padding: 3px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 6px;
+  z-index: 90;
+  background-image: url('./assets/coin.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.props:hover h3 {
+  display: block !important;
+}
+
+.props>img {
+  transform: none;
+  position: relative;
 }
 </style>
