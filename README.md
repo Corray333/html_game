@@ -1,35 +1,14 @@
-# game-test
+# Simple farming game
+This is a farm simulation game built with Vue.js. Here, you manage your island farm by:\
+🌱Growing crops: Plant and harvest apples, berries, wheat, and tomatoes\
+🐣Raising chickens: Care for your chickens and collect eggs\
+📜GUI interface: Manage your farm with a user-friendly interface built with Vue.js\
+🎧Soundscapes: Enjoy relaxing island sounds while you play\
 
-This template should help get you started developing with Vue 3 in Vite.
+### Technical details
+* Developed using Vue.js framework
+* Features a simple and intuitive user interface
+* Includes sound effects for an immersive gameplay experience
+### Screenshots
+![Game image](screen.png)
 
-## Recommended IDE Setup
-
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vitejs.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```

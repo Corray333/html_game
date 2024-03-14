@@ -42,8 +42,14 @@
     </div>
     <div class="screen">
       <div class="screen_edge">
-
+        <transition>
+          <div class="end_of_game" v-if="endOfGame">
+            <h1>Конец</h1>
+            <button @click="localStorage.clear(); location.reload()">Новая игра</button>
+          </div>
+        </transition>
         <div class="world">
+
           <div class="money" v-if="world != undefined">
             <p>{{ player.money }}</p>
             <img src="./assets/coin.png" alt="">
@@ -249,7 +255,8 @@ const plantsGrowthSpeed = {
   'item_tomatoes_seeds': 15000,
   'item_wheat_seeds': 10000,
   'item_apples': 20000,
-  'item_berries': 10000
+  'item_berries': 10000,
+  'item_egg': 20000
 }
 
 const itemsTitles = {
@@ -261,7 +268,8 @@ const itemsTitles = {
   'item_fertilizer': 'Удобрение',
   'item_hoe': 'Мотыга',
   'item_watering_can': 'Лейка',
-  'item_berries': 'Ягоды'
+  'item_berries': 'Ягоды',
+  'item_egg': 'Яйцо'
 }
 
 
@@ -274,6 +282,14 @@ class Item {
 }
 
 const save = () => {
+  const prices = {
+    'bed': Bed.price,
+    'apple_tree': AppleTree.price,
+    'berry_bush': Berries.price,
+    'chicken_house': ChickenHouse.price,
+    'number_of_chickens': ChickenHouse.numberOfChickens
+  }
+  localStorage.setItem('prices', JSON.stringify(prices))
   localStorage.setItem('player', JSON.stringify(player.value))
   world.value.objects.forEach(el => {
     if (el.id) {
@@ -291,10 +307,25 @@ const load = () => {
   world.value.objects.forEach(el => {
     if (el.id) {
       let obj = JSON.parse(localStorage.getItem(`id${el.id}`))
+      if (!obj) return
       el.level = obj.level
       el.plantingTime = Date.parse(obj.plantingTime)
     }
   })
+  if (localStorage.getItem('prices')) {
+    let prices = JSON.parse(localStorage.getItem('prices'))
+    Bed.price = prices.bed
+    AppleTree.price = prices.apple_tree
+    Berries.price = prices.berry_bush
+    ChickenHouse.price = prices.chicken_house
+    ChickenHouse.numberOfChickens = prices.number_of_chickens
+    for (let i = 0; i < ChickenHouse.numberOfChickens; i++) {
+      world.value.objects.push(ChickenHouse.chickens[i])
+    }
+    world.value.objects.forEach(el => {
+      if (el instanceof Animated) el.animate()
+    })
+  }
 
 }
 
@@ -313,6 +344,7 @@ const shopBuy = ref([
   new Item('item_tomatoes', 25),
   new Item('item_apples', 35),
   new Item('item_berries', 10),
+  new Item('item_egg', 70),
 ])
 
 const trade = (item) => {
@@ -408,11 +440,16 @@ class Animated extends Props {
     this.animationTime = 100
   }
   animate() {
+    clearInterval(this.animateInterval)
     this.animateInterval = setInterval(() => {
       this.currentAnimation = (this.currentAnimation + 1) % this.maxAnimation
     }, this.animationTime)
   }
 }
+
+const endOfGame = ref(false)
+
+
 
 class Trader extends Animated {
   constructor(name, x, y) {
@@ -427,8 +464,36 @@ class Trader extends Animated {
   }
   click() {
     shopOpened.value = true
+    openSound.play()
   }
 }
+
+class Campfire extends Animated {
+  constructor(name, x, y) {
+    super(name, x, y)
+    this.id = Props.elements++
+    this.class += " campfire"
+    this.maxAnimation = 4
+    this.animationTime = 300
+  }
+  get image() {
+    return `./src/assets/campfire_a${this.currentAnimation}.png`
+  }
+}
+
+class Chicken extends Animated {
+  constructor(name, x, y) {
+    super(name, x, y)
+    this.id = Props.elements++
+    this.class += " chicken"
+    this.animationTime = 1000
+    this.maxAnimation = 6
+  }
+  get image() {
+    return `./src/assets/chicken_a${this.currentAnimation}.png`
+  }
+}
+
 
 class Upgradable extends Props {
   constructor(name, x, y, cx, cy, cw, ch) {
@@ -440,7 +505,112 @@ class Upgradable extends Props {
   get image() {
     return `./src/assets/${this.name}_lvl${this.level}.png`
   }
+}
 
+const priceRiseCoef = 1.5
+
+class Boat extends Upgradable {
+  static price = 3000
+  constructor(name, x, y, cx, cy, cw, ch) {
+    super(name, x, y, cx, cy, cw, ch)
+    this.class += " boat"
+    this.level = 0
+  }
+  get image() {
+    return `./src/assets/boat_lvl${this.level}.png`
+  }
+  click() {
+    let audio
+    switch (this.level) {
+      case 0:
+        if (player.value.money < Boat.price) {
+          showAlert('Поскорее бы уплыть отсюда...')
+          return
+        }
+        this.level++
+        player.value.money -= Boat.price
+        audio = new Audio('./src/assets/sounds/buy.wav')
+        audio.play()
+        break
+      case 1:
+        showAlert('Пора домой...')
+        setTimeout(() => {
+          endOfGame.value = true
+          audio = new Audio('./src/assets/sounds/boat.mp3')
+          audio.play()
+        }, 2000)
+
+    }
+
+  }
+}
+
+class ChickenHouse extends Upgradable {
+  static price = 100
+  static numberOfChickens = 0
+  static chickens = [
+    new Chicken('chicken', -6, 82),
+    new Chicken('chicken', -6, 91),
+    new Chicken('chicken', 3, 82),
+    new Chicken('chicken', 3, 91),
+    new Chicken('chicken', -1, 86.5),
+  ]
+  constructor(name, x, y, cx, cy, cw, ch) {
+    super(name, x, y, cx, cy, cw, ch)
+    this.class += " chicken_house"
+    this.type = "item_egg"
+    this.plantingTime = null
+    this.maxLevel = 1
+  }
+  get image() {
+    return `./src/assets/chicken_house_lvl${this.level}.png`
+  }
+  click() {
+    let audio
+    switch (true) {
+      case this.level == 1:
+        for (let i = 0; i < ChickenHouse.numberOfChickens; i++) player.value.addToInventory(this.type)
+        audio = new Audio('./src/assets/sounds/collect.mp3')
+        audio.play()
+        this.level = 0
+        this.plantingTime = null
+        return
+      case pickedItem.value.substring(pickedItem.value.length - 5, pickedItem.value.length) != 'seeds' && ChickenHouse.numberOfChickens < 5:
+        if (player.value.money < ChickenHouse.price) {
+          showAlert('Мне не хватит денег...')
+          return
+        }
+        player.value.money -= ChickenHouse.price
+        audio = new Audio('./src/assets/sounds/buy.wav')
+        audio.play()
+        ChickenHouse.price = Math.floor(ChickenHouse.price * priceRiseCoef)
+        world.value.objects.push(ChickenHouse.chickens[ChickenHouse.numberOfChickens++])
+        world.value.objects.forEach(el => {
+          if (el instanceof Animated) el.animate()
+        })
+        break
+      case pickedItem.value.substring(pickedItem.value.length - 5, pickedItem.value.length) != 'seeds' && ChickenHouse.numberOfChickens == 5:
+        showAlert('Слишком много куриц!')
+        return
+      case pickedItem.value.substring(pickedItem.value.length - 5, pickedItem.value.length) == 'seeds' && ChickenHouse.numberOfChickens > 0:
+        if (this.plantingTime) {
+          showAlert('Курицы уже накормлены!')
+          return
+        }
+        this.plantingTime = new Date()
+        player.value.inventory.forEach((item, i) => {
+          if (item.name == pickedItem.value) {
+            if (item.quantity == 1) {
+              player.value.inventory.splice(i, 1)
+            } else {
+              item.quantity--
+            }
+          }
+        })
+        audio = new Audio('./src/assets/sounds/click.mp3')
+        audio.play()
+    }
+  }
 }
 
 class AppleTree extends Upgradable {
@@ -467,7 +637,7 @@ class AppleTree extends Upgradable {
         player.value.money -= AppleTree.price
         audio = new Audio('./src/assets/sounds/buy.wav')
         audio.play()
-        AppleTree.price = Math.floor(AppleTree.price * 1.25)
+        AppleTree.price = Math.floor(AppleTree.price * priceRiseCoef)
         break
       case 1:
         if (pickedItem.value.substring(5) != 'fertilizer') {
@@ -525,7 +695,7 @@ class Berries extends Upgradable {
         player.value.money -= Berries.price
         audio = new Audio('./src/assets/sounds/buy.wav')
         audio.play()
-        Berries.price = Math.floor(Berries.price * 1.25)
+        Berries.price = Math.floor(Berries.price * priceRiseCoef)
         break
       case 1:
         if (pickedItem.value.substring(5) != 'watering_can') {
@@ -575,7 +745,7 @@ class Bed extends Upgradable {
         player.value.money -= Bed.price
         audio = new Audio('./src/assets/sounds/buy.wav')
         audio.play()
-        Bed.price = Math.floor(Bed.price * 1.25)
+        Bed.price = Math.floor(Bed.price * priceRiseCoef)
         break
       case 1:
         if (pickedItem.value != 'item_hoe') {
@@ -703,14 +873,17 @@ class Map {
       new Props('stone', 23, 30, 30, 23, 1, 0),
       new Props('log', 1, 15, 15, 2, 1, 0),
       new Props('store', -10, 45, 45, -5, 5, 3),
-      new AppleTree('apple_tree', 30, -15, -14, 37, 3.5, 1.5),
-      new AppleTree('apple_tree', 30, -35, -34, 37, 3.5, 1.5),
+      new AppleTree('apple_tree', 30, -15, -13, 37, 1.5, 1),
+      new AppleTree('apple_tree', 30, -35, -33, 37, 1.5, 1),
       new Berries('berry_bush', 10, -10, -10, 10, 1, 1),
       new Berries('berry_bush', 10, -15, -15, 10, 1, 1),
       new Berries('berry_bush', 10, -20, -20, 10, 1, 1),
       new Berries('berry_bush', 15, -18, -18, 15, 1, 1),
       new Berries('berry_bush', 15, -13, -13, 15, 1, 1),
       new Trader('trader', -2, 45),
+      // new Campfire('campfire', 20, 20),
+      new ChickenHouse('chicken_house', 3, 85, 0, 80, 2, 2),
+      new Boat('boat', 65, 29, 0, 0, 0, 0),
       new Bed('bed', 54, -24, -24, 54, 4, 4, 50),
       new Bed('bed', 64, -24, -24, 64, 4, 4, 50),
       new Bed('bed', 54, -8, -8, 54, 4, 4, 50),
@@ -757,6 +930,47 @@ class Map {
       new Props('edge', 0, 0, -0.5, 57, 1, 15),
       new Props('edge', 0, 0, -24, 49.5, 5, 1),
       new Props('edge', 0, 0, -9, 49.5, 5, 1),
+      new Props('edge', 0, 0, 83, -4.5, 8.5, 8.5),
+      new Props('edge', 0, 0, -36, 8, 2, 2),
+      new Props('edge', 0, 0, -34, 6, 2, 2),
+      new Props('edge', 0, 0, -32, 4, 4, 2),
+      new Props('edge', 0, 0, -26, 2, 2, 2),
+      new Props('edge', 0, 0, -24, 0, 2, 2),
+      new Props('edge', 0, 0, -22, -2, 2, 2),
+      new Props('edge', 0, 0, -20, -4, 2, 2),
+      new Props('edge', 0, 0, -18, -6, 2, 2),
+      new Props('edge', 0, 0, -16, -8, 2, 2),
+      new Props('edge', 0, 0, -14, -10, 4, 2),
+      new Props('edge', 0, 0, -6, -12, 5, 2),
+      new Props('edge', 0, 0, 2, -14, 4, 2),
+      new Props('edge', 0, 0, 8, -16, 4, 2),
+      new Props('edge', 0, 0, 14, -18, 2, 2),
+      new Props('edge', 0, 0, 32, -20, 30, 2),
+      new Props('edge', 0, 0, 82, -18, 10, 2),
+      new Props('edge', 0, 0, 98, -16, 4, 2),
+      new Props('edge', 0, 0, 104, -14, 2, 2),
+      new Props('edge', 0, 0, 108, -12, 2, 2),
+      new Props('edge', 0, 0, 110, -10, 2, 2),
+      new Props('edge', 0, 0, 112, -8, 2, 2),
+      new Props('edge', 0, 0, 114, -6, 2, 2),
+      new Props('edge', 0, 0, 116, -4, 2, 2),
+      new Props('edge', 0, 0, 118, -2, 2, 2),
+      new Props('edge', 0, 0, 120, 0, 2, 4),
+      new Props('edge', 0, 0, 122, 4, 2, 4),
+      new Props('edge', 0, 0, 124, 16, 2, 14),
+      new Props('edge', 0, 0, 122, 38, 2, 2),
+      new Props('edge', 0, 0, 120, 40, 2, 2),
+      new Props('edge', 0, 0, 118, 42, 2, 2),
+      new Props('edge', 0, 0, 116, 44, 2, 2),
+      new Props('edge', 0, 0, 114, 46, 2, 2),
+      new Props('edge', 0, 0, 92, 48, 16, 2),
+      new Props('edge', 0, 0, 82, 43, 2, 2),
+      new Props('edge', 0, 0, 80, 41, 2, 2),
+      new Props('edge', 0, 0, 78, 39, 2, 2),
+      new Props('edge', 0, 0, 76, 37, 2, 2),
+      new Props('edge', 0, 0, 74, 35, 2, 2),
+      new Props('edge', 0, 0, 72, 33, 2, 2),
+      new Props('edge', 0, 0, 68, 31, 4, 2),
     ]
   }
   get offsetX() {
@@ -948,6 +1162,7 @@ class Map {
       if (el.id != id) return
       el.click()
     })
+    pickedItem.value = ""
   }
 
   grow() {
@@ -982,6 +1197,9 @@ onMounted(() => {
   }, 1000)
   load()
   window.addEventListener('beforeunload', save)
+  setTimeout(() => {
+    showAlert("Мне надо уплыть отсюда...")
+  }, 1000);
 })
 
 
@@ -991,6 +1209,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+* {
+  user-select: none;
+}
+
 .collider {
   transform: scale(1) !important;
   position: absolute;
@@ -1496,5 +1718,35 @@ div.shop button.active {
 .props>img {
   transform: none;
   position: relative;
+}
+
+
+.end_of_game{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 101;
+  border-radius: 25px;
+  background-color: #1b1b1b;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  top: 0;
+  left: 0;
+  gap: 25px;
+  color: white;
+}
+.end_of_game>button{
+  background-color: transparent;
+  border: 2px solid white;
+  border-radius: 5px;
+  padding: 5px;
+  color: white;
+  transition: all 0.3s;
+}
+.end_of_game>button:hover{
+  background-color: white;
+  color: #1b1b1b;
 }
 </style>
